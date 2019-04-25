@@ -7,14 +7,14 @@
 
 cimport cython
 import numpy as np
-cimport numpy as np
+cimport numpy as cnp
 
 DTYPE = np.float
-ctypedef np.float_t DTYPE_t
+ctypedef cnp.float_t DTYPE_t
 
 def bbox_overlaps(
-        np.ndarray[DTYPE_t, ndim=2] boxes,
-        np.ndarray[DTYPE_t, ndim=2] query_boxes):
+        cnp.ndarray[DTYPE_t, ndim=2] boxes,
+        cnp.ndarray[DTYPE_t, ndim=2] query_boxes):
     """
     Parameters
     ----------

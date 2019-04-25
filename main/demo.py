@@ -8,15 +8,22 @@ import cv2
 import numpy as np
 import tensorflow as tf
 
-sys.path.append(os.getcwd())
+sys.path.append(os.getcwd())  # 似乎没起作用？
 from nets import model_train as model
 from utils.rpn_msr.proposal_layer import proposal_layer
 from utils.text_connector.detectors import TextDetector
 
+# 加一个
+# tf.app.flags.DEFINE_string('ROOT_PATH', '/Users/yiting/yiting/self/ai/ai_codes/OCR/text-detection-ctpn/')
+# tf.app.flags.DEFINE_string('test_data_path', '/Users/yiting/yiting/self/ai/ai_codes/OCR/text-detection-ctpn/data/demo/', '')
+# tf.app.flags.DEFINE_string('output_path', '/Users/yiting/yiting/self/ai/ai_codes/OCR/text-detection-ctpn/data/res/', '')
+# tf.app.flags.DEFINE_string('gpu', '0', '')
+# tf.app.flags.DEFINE_string('checkpoint_path', '/Users/yiting/yiting/self/ai/ai_codes/OCR/text-detection-ctpn/checkpoints_mlt/', '')
+
 tf.app.flags.DEFINE_string('test_data_path', 'data/demo/', '')
 tf.app.flags.DEFINE_string('output_path', 'data/res/', '')
 tf.app.flags.DEFINE_string('gpu', '0', '')
-tf.app.flags.DEFINE_string('checkpoint_path', 'checkpoints_mlt/', '')
+tf.app.flags.DEFINE_string('checkpoint_path', './checkpoints_mlt/', '')
 FLAGS = tf.app.flags.FLAGS
 
 
@@ -69,6 +76,7 @@ def main(argv=None):
         saver = tf.train.Saver(variable_averages.variables_to_restore())
 
         with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+            print(FLAGS.checkpoint_path)
             ckpt_state = tf.train.get_checkpoint_state(FLAGS.checkpoint_path)
             model_path = os.path.join(FLAGS.checkpoint_path, os.path.basename(ckpt_state.model_checkpoint_path))
             print('Restore from {}'.format(model_path))

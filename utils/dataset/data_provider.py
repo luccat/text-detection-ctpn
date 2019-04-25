@@ -8,7 +8,7 @@ import numpy as np
 
 from utils.dataset.data_util import GeneratorEnqueuer
 
-DATA_FOLDER = "data/dataset/mlt/"
+DATA_FOLDER = "/Users/yiting/yiting/self/ai/ai_codes/OCR/text-detection-ctpn/data/dataset/mlt/"
 
 
 def get_training_data():
@@ -24,15 +24,83 @@ def get_training_data():
     return img_files
 
 
-def load_annoataion(p):
+# def load_annoataion(p):
+#     bbox = []
+#     with open(p, "r") as f:
+#         lines = f.readlines()
+#     for line in lines:
+#         line = line.strip().split(",")
+#         x_min, y_min, x_max, y_max = map(int, line)
+#         bbox.append([x_min, y_min, x_max, y_max, 1])
+#     return bbox
+
+# xml获取标注数据
+def load_annotation(p):
+    from xml.dom import minidom
     bbox = []
-    with open(p, "r") as f:
-        lines = f.readlines()
-    for line in lines:
-        line = line.strip().split(",")
-        x_min, y_min, x_max, y_max = map(int, line)
+    xml = minidom.parse(p)
+    # 获取跟节点
+    annotation = xml.documentElement
+    boxs = annotation.getElementsByTagName('bndbox')
+    for box in boxs:
+        x_min = box.getElementsByTagName('xmin')[0].childNodes[0].data
+        y_min = box.getElementsByTagName('ymin')[0].childNodes[0].data
+        x_max = box.getElementsByTagName('xmax')[0].childNodes[0].data
+        y_max = box.getElementsByTagName('ymax')[0].childNodes[0].data
         bbox.append([x_min, y_min, x_max, y_max, 1])
     return bbox
+
+
+# def load_annotation(p):
+#     bbox = []
+#     with open(p, "r") as f:
+#         lines = f.readlines()
+#     for line in lines:
+#         line = line.strip().split(",")
+#         x_min, y_min, x_max, y_max = map(int, line)
+#         bbox.append([x_min, y_min, x_max, y_max, 1])
+#     return bbox
+
+
+# def generator(vis=False):
+#     image_list = np.array(get_training_data())
+#     print('{} training images in {}'.format(image_list.shape[0], DATA_FOLDER))
+#     index = np.arange(0, image_list.shape[0])
+#     while True:
+#         np.random.shuffle(index)
+#         for i in index:
+#             try:
+#                 im_fn = image_list[i]
+#                 im = cv2.imread(im_fn)
+#                 h, w, c = im.shape
+#                 im_info = np.array([h, w, c]).reshape([1, 3])
+# 
+#                 _, fn = os.path.split(im_fn)
+#                 fn, _ = os.path.splitext(fn)
+#                 txt_fn = os.path.join(DATA_FOLDER, "label", fn + '.txt')
+#                 if not os.path.exists(txt_fn):
+#                     print("Ground truth for image {} not exist!".format(im_fn))
+#                     continue
+#                 bbox = load_annoataion(txt_fn)
+#                 if len(bbox) == 0:
+#                     print("Ground truth for image {} empty!".format(im_fn))
+#                     continue
+# 
+#                 if vis:
+#                     for p in bbox:
+#                         cv2.rectangle(im, (p[0], p[1]), (p[2], p[3]), color=(0, 0, 255), thickness=1)
+#                     fig, axs = plt.subplots(1, 1, figsize=(30, 30))
+#                     axs.imshow(im[:, :, ::-1])
+#                     axs.set_xticks([])
+#                     axs.set_yticks([])
+#                     plt.tight_layout()
+#                     plt.show()
+#                     plt.close()
+#                 yield [im], bbox, im_info
+# 
+#             except Exception as e:
+#                 print(e)
+#                 continue
 
 
 def generator(vis=False):
@@ -50,11 +118,11 @@ def generator(vis=False):
 
                 _, fn = os.path.split(im_fn)
                 fn, _ = os.path.splitext(fn)
-                txt_fn = os.path.join(DATA_FOLDER, "label", fn + '.txt')
-                if not os.path.exists(txt_fn):
+                xml_fn = os.path.join(DATA_FOLDER, "label", fn + '.xml')
+                if not os.path.exists(xml_fn):
                     print("Ground truth for image {} not exist!".format(im_fn))
                     continue
-                bbox = load_annoataion(txt_fn)
+                bbox = load_annotation(xml_fn)
                 if len(bbox) == 0:
                     print("Ground truth for image {} empty!".format(im_fn))
                     continue

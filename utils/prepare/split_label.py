@@ -3,7 +3,7 @@ import sys
 
 import cv2 as cv
 import numpy as np
-from tqdm import tqdm
+# from tqdm import tqdm   # 终端进度条工具
 
 sys.path.append(os.getcwd())
 from utils.prepare.utils import orderConvex, shrink_poly

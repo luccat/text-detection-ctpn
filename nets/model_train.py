@@ -1,24 +1,27 @@
+from nets import vgg
 import tensorflow as tf
 from tensorflow.contrib import slim
 
-from nets import vgg
 from utils.rpn_msr.anchor_target_layer import anchor_target_layer as anchor_target_layer_py
 
-
+# 对图像做处理，rgb分别减去均值（这样特征应该会比较明显？）
 def mean_image_subtraction(images, means=[123.68, 116.78, 103.94]):
+    # image四维度，最后一维度是channel数，rbg应该是3维
     num_channels = images.get_shape().as_list()[-1]
     if len(means) != num_channels:
         raise ValueError('len(means) must match the number of channels')
+    # 对images做切割，得到轴3的rgb值
     channels = tf.split(axis=3, num_or_size_splits=num_channels, value=images)
     for i in range(num_channels):
         channels[i] -= means[i]
+    # 重新拼接成3维
     return tf.concat(axis=3, values=channels)
 
 
 def make_var(name, shape, initializer=None):
     return tf.get_variable(name, shape, initializer=initializer)
 
-
+# 双向LSTM，net应该是vgg16传入的conv5_3，大小是W×H×C（宽，高，卷积核数），N个
 def Bilstm(net, input_channel, hidden_unit_num, output_channel, scope_name):
     # width--->time step
     with tf.variable_scope(scope_name) as scope:
@@ -27,14 +30,44 @@ def Bilstm(net, input_channel, hidden_unit_num, output_channel, scope_name):
         net = tf.reshape(net, [N * H, W, C])
         net.set_shape([None, None, input_channel])
 
+        # 制作cell，hidden_unit_num是隐藏层单元的数目
+        # lstm中有一个c和一个h，c是上一时刻传入的状态，h是当前时刻观测值
+        # 当state_is_tuple=True的时候，state是元组形式，state=(c,h)。
+        # 如果是False，那么state是一个由c和h拼接起来的张量，state=tf.concat(1,[c,h])。在运行时，则返回2值，一个是h，还有一个state。
         lstm_fw_cell = tf.contrib.rnn.LSTMCell(hidden_unit_num, state_is_tuple=True)
         lstm_bw_cell = tf.contrib.rnn.LSTMCell(hidden_unit_num, state_is_tuple=True)
+        '''
+        tf.nn.bidirectional_dynamic_rnn(
+                                    cell_fw,
+                                    cell_bw,
+                                    inputs,
+                                    sequence_length=None,
+                                    initial_state_fw=None,
+                                    initial_state_bw=None,
+                                    dtype=None,
+                                    parallel_iterations=None,
+                                    swap_memory=False,
+                                    time_major=False,
+                                    scope=None
+                                )
 
+        '''
         lstm_out, last_state = tf.nn.bidirectional_dynamic_rnn(lstm_fw_cell, lstm_bw_cell, net, dtype=tf.float32)
+        # -1可能是要拉平的，concat是连接tensor
         lstm_out = tf.concat(lstm_out, axis=-1)
 
         lstm_out = tf.reshape(lstm_out, [N * H * W, 2 * hidden_unit_num])
 
+        '''
+        方差缩放初始化。在 TensorFlow 中，该方法写作 tf.contrib.layers.variance_scaling_initializer()。
+        根据我们的实验，这种初始化方法比常规高斯分布初始化、截断高斯分布初始化及 Xavier 初始化的泛化/缩放性能更好。
+        粗略地说，方差缩放初始化根据每一层输入或输出的数量(在 TensorFlow 中默认为输入的数量)来调整初始随机权重的方差，
+        从而帮助信号在不需要其他技巧(如梯度裁剪或批归一化)的情况下在网络中更深入地传播。
+        Xavier 和方差缩放初始化类似，只不过 Xavier 中每一层的方差几乎是相同的;但是如果网络的各层之间规模差别很大(常见于卷积神经网络)，
+        则这些网络可能并不能很好地处理每一层中相同的方差。
+        mode = "fan_avg",n为输入和输出单元结点数的平均值。
+        uniform: Whether to use uniform or normal distributed random initialization.
+        '''
         init_weights = tf.contrib.layers.variance_scaling_initializer(factor=0.01, mode='FAN_AVG', uniform=False)
         init_biases = tf.constant_initializer(0.0)
         weights = make_var('weights', [2 * hidden_unit_num, output_channel], init_weights)
@@ -67,6 +100,7 @@ def model(image):
     with slim.arg_scope(vgg.vgg_arg_scope()):
         conv5_3 = vgg.vgg_16(image)
 
+    # print(conv5_3)
     rpn_conv = slim.conv2d(conv5_3, 512, 3)
 
     lstm_output = Bilstm(rpn_conv, 512, 128, 512, scope_name='BiLSTM')
